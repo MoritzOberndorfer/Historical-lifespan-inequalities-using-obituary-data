@@ -1,0 +1,1241 @@
+****************** Historical obituaries analysis 2024**************
+**** Susanne Mayer, Moritz Oberndorfer
+clear all
+
+/****
+*setting up your folder structure 
+
+
+global username "`c(username)'"
+dis "$username" // Displays user name on computer
+
+Our structure as example of how set the paths up
+
+if "$username" == "smayer66" {
+global master = "Z:\DHE\DHE member folders\Susanne\OBITUARY Todesanzeigen-Analyse"
+global code 	"Z:\DHE\DHE member folders\Susanne\OBITUARY Todesanzeigen-Analyse/scripts"
+global log 		"Z:\DHE\DHE member folders\Susanne\OBITUARY Todesanzeigen-Analyse/out/log"
+global dta 		"Z:\DHE\DHE member folders\Susanne\OBITUARY Todesanzeigen-Analyse/dta"
+global docx 	"Z:\DHE\DHE member folders\Susanne\OBITUARY Todesanzeigen-Analyse/out/docx"
+global graph  	"Z:\DHE\DHE member folders\Susanne\OBITUARY Todesanzeigen-Analyse/out/graphs"
+}
+
+if "$username" == "moritzob" { // this code makes it so that we can use the code without changing file paths if we use the globals
+global master = "C:\Users\moritzob\OneDrive - University of Helsinki\postdoc life helsinki\Obituary project Austria"
+global code 	"C:\Users\moritzob\OneDrive - University of Helsinki\postdoc life helsinki\Obituary project Austria/scripts"
+global log 		"C:\Users\moritzob\OneDrive - University of Helsinki\postdoc life helsinki\Obituary project Austria/out/log"
+global dta 		"C:\Users\moritzob\OneDrive - University of Helsinki\postdoc life helsinki\Obituary project Austria/dta"
+global docx 	"C:\Users\moritzob\OneDrive - University of Helsinki\postdoc life helsinki\Obituary project Austria/out/docx"
+global graph  	"C:\Users\moritzob\OneDrive - University of Helsinki\postdoc life helsinki\Obituary project Austria/out/graphs"
+global table 	"C:\Users\moritzob\OneDrive - University of Helsinki\postdoc life helsinki\Obituary project Austriaout/tables"
+}
+*/
+**# Bookmark #1
+/*
+Descriptive analysis (code written by SM)
+*/
+
+/***import data collected data and do final cleaning
+
+*This is how we generated the openly shared data
+
+------------------------------------------------------------
+import excel "$dta\VN_1946-1981_MASTER SM.xlsx", sheet("data") firstrow clear // this will open the data from the path you saved in the global dta above - the $ sign tells stata that it is a global
+
+*For all analyses, include ID=="x" to cover the deceased's unique ID
+*set scheme cblind1
+
+destring year, gen(year2)
+drop year
+rename year2 year
+drop if year==.
+
+*label variables (delete for Zenodo upload)
+
+
+**# Bookmark #1: DESCRIPTIVES
+tab year //by obituaries
+tab year if ID=="x" //by deceased with the data condensed in the main obituary (most commonly placed by the family)
+tab year if ID=="x" & originator==1 //only obituaries placed by the family
+sum age_at_death if ID=="x" //included in analyses
+
+*People who have died in different year 
+gen year_of_death=substr(year_death, -4,.)
+
+tab year year_of_death,m // check overlap
+replace year_of_death="1961" if year_of_death=="1061" // correct typo in collection
+replace year_of_death="1946" if year_of_death=="n-46" // correct typo in collection
+replace year_of_death="1946" if year_of_death=="r-46" // correct typo in collection
+destring year_of_death, replace
+replace year_of_death=year if year_of_death==.
+
+sum year_of_death if ID=="x"
+
+tab year year_of_death,m // check overlap
+*remove those which died in other years than the obituary so ensure fair comparison with official data
+drop if year != year_of_death // 191 removed
+
+tab bluewhitecollar
+replace bluewhitecollar=0 if bluewhitecollar==3
+
+
+*create cleaned reduced data for open use
+keep year year_death year_of_death multiple_obituaries ID originator any_title ISCED678 bluewhitecollar any_honorary_service female age_at_death obit_size soldier war width_cm height_cm area_cm2
+
+*Exporting the data we openly shared
+export excel using "$dta\VN_1946-1981_opendata.xlsx", firstrow(variables) replace
+
+
+*/
+
+import excel "$dta\VN_1946-1981_opendata.xlsx", firstrow clear // this will open the data from the path you saved in the global dta above - the $ sign tells stata that it is a global
+
+graph set window fontface "Lucida Sans"
+set scheme stcolor
+label variable obit_size "Obituary size"
+label define obit_size_lab1 1"Small" 2"Medium" 3"Large"
+label values obit_size obit_size_lab1
+
+label variable ISCED678 "Tertiary education"
+label define ISCED678_lab1 0"None (reported)" 1"Tertiary education"
+label values ISCED678 ISCED678_lab1
+
+label variable bluewhitecollar "Collar of profession"
+label define bluewhitecollar_lab1 0"None (reported)" 1"Blue collar" 2"White collar" 
+label values bluewhitecollar bluewhitecollar_lab1
+
+label variable any_honorary_service "Honoarary service"
+label define any_honorary_service_lab1 0"None (reported)" 1"Honorary service"
+label values any_honorary_service any_honorary_service_lab1
+
+save "$dta/VN_1946_1981_opendata.dta",replace
+
+
+
+*abstract
+sum age_at_death if ! missing(ID) & year==1946
+sum age_at_death if ! missing(ID) & year==1981
+
+reg age_at_death i.obit_size i.female i.multiple_obituaries if year==1946 & ID=="x"
+reg age_at_death i.obit_size i.female i.multiple_obituaries if year==1981 & ID=="x"
+
+*table 1 solely: description of study population
+
+sum age_at_death if ! missing(ID)  
+
+*1946
+sum age_at_death if ! missing(ID) & year==1946 
+tab female if ! missing(ID) & year==1946  & ! missing(age_at_death)
+tab multiple_obituaries if ! missing(ID) & year==1946  & ! missing(age_at_death)
+tab originator if ! missing(ID) & year==1946  & ! missing(age_at_death)
+tab obit_size if ! missing(ID) & year==1946  & ! missing(age_at_death)
+tab ISCED678 if ! missing(ID) & year==1946  & ! missing(age_at_death)
+tab bluewhitecollar if ! missing(ID) & year==1946  & ! missing(age_at_death)
+tab any_honorary_service if ! missing(ID) & year==1946  & ! missing(age_at_death)
+
+
+*1951
+sum age_at_death if ! missing(ID) & year==1951 
+tab female if ! missing(ID) & year==1951  & ! missing(age_at_death)
+tab multiple_obituaries if ! missing(ID) & year==1951  & ! missing(age_at_death)
+tab originator if ! missing(ID) & year==1951  & ! missing(age_at_death)
+tab obit_size if ! missing(ID) & year==1951  & ! missing(age_at_death)
+tab ISCED678 if ! missing(ID) & year==1951  & ! missing(age_at_death)
+tab bluewhitecollar if ! missing(ID) & year==1951  & ! missing(age_at_death)
+tab any_honorary_service if ! missing(ID) & year==1951  & ! missing(age_at_death)
+
+
+*1956
+sum age_at_death if ! missing(ID) & year==1956 
+tab female if ! missing(ID) & year==1956  & ! missing(age_at_death)
+tab multiple_obituaries if ! missing(ID) & year==1956  & ! missing(age_at_death)
+tab originator if ! missing(ID) & year==1956  & ! missing(age_at_death)
+tab obit_size if ! missing(ID) & year==1956  & ! missing(age_at_death)
+tab ISCED678 if ! missing(ID) & year==1956  & ! missing(age_at_death)
+tab bluewhitecollar if ! missing(ID) & year==1956  & ! missing(age_at_death)
+tab any_honorary_service if ! missing(ID) & year==1956  & ! missing(age_at_death)
+
+
+*1961
+sum age_at_death if ! missing(ID) & year==1961 
+tab female if ! missing(ID) & year==1961  & ! missing(age_at_death)
+tab multiple_obituaries if ! missing(ID) & year==1961  & ! missing(age_at_death)
+tab originator if ! missing(ID) & year==1961  & ! missing(age_at_death)
+tab obit_size if ! missing(ID) & year==1961  & ! missing(age_at_death)
+tab ISCED678 if ! missing(ID) & year==1961  & ! missing(age_at_death)
+tab bluewhitecollar if ! missing(ID) & year==1961  & ! missing(age_at_death)
+tab any_honorary_service if ! missing(ID) & year==1961  & ! missing(age_at_death)
+
+
+*1966
+sum age_at_death if ! missing(ID) & year==1966 
+tab female if ! missing(ID) & year==1966  & ! missing(age_at_death)
+tab multiple_obituaries if ! missing(ID) & year==1966  & ! missing(age_at_death)
+tab originator if ! missing(ID) & year==1966  & ! missing(age_at_death)
+tab obit_size if ! missing(ID) & year==1966  & ! missing(age_at_death)
+tab ISCED678 if ! missing(ID) & year==1966  & ! missing(age_at_death)
+tab bluewhitecollar if ! missing(ID) & year==1966  & ! missing(age_at_death)
+tab any_honorary_service if ! missing(ID) & year==1966  & ! missing(age_at_death)
+
+
+*1971
+sum age_at_death if ! missing(ID) & year==1971 
+tab female if ! missing(ID) & year==1971  & ! missing(age_at_death)
+tab multiple_obituaries if ! missing(ID) & year==1971  & ! missing(age_at_death)
+tab originator if ! missing(ID) & year==1971  & ! missing(age_at_death)
+tab obit_size if ! missing(ID) & year==1971  & ! missing(age_at_death)
+tab ISCED678 if ! missing(ID) & year==1971  & ! missing(age_at_death)
+tab bluewhitecollar if ! missing(ID) & year==1971  & ! missing(age_at_death)
+tab any_honorary_service if ! missing(ID) & year==1971  & ! missing(age_at_death)
+
+
+*1976
+sum age_at_death if ! missing(ID) & year==1976 
+tab female if ! missing(ID) & year==1976  & ! missing(age_at_death)
+tab multiple_obituaries if ! missing(ID) & year==1976  & ! missing(age_at_death)
+tab originator if ! missing(ID) & year==1976  & ! missing(age_at_death)
+tab obit_size if ! missing(ID) & year==1976  & ! missing(age_at_death)
+tab ISCED678 if ! missing(ID) & year==1976  & ! missing(age_at_death)
+tab bluewhitecollar if ! missing(ID) & year==1976  & ! missing(age_at_death)
+tab any_honorary_service if ! missing(ID) & year==1976  & ! missing(age_at_death)
+
+
+*1981
+sum age_at_death if ! missing(ID) & year==1981 
+tab female if ! missing(ID) & year==1981  & ! missing(age_at_death)
+tab multiple_obituaries if ! missing(ID) & year==1981  & ! missing(age_at_death)
+tab originator if ! missing(ID) & year==1981  & ! missing(age_at_death)
+tab obit_size if ! missing(ID) & year==1981  & ! missing(age_at_death)
+tab ISCED678 if ! missing(ID) & year==1981  & ! missing(age_at_death)
+tab bluewhitecollar if ! missing(ID) & year==1981  & ! missing(age_at_death)
+tab any_honorary_service if ! missing(ID) & year==1981  & ! missing(age_at_death)
+
+**# Bookmark #5: APPENDIX TABLE 1: for comparison with registry data
+
+**number of deceased with obituaries
+misstable sum age_at_death if ! missing(ID) & year==1946 
+misstable sum age_at_death if ! missing(ID) & year==1951 
+misstable sum age_at_death if ! missing(ID) & year==1956 
+misstable sum age_at_death if ! missing(ID) & year==1961 
+misstable sum age_at_death if ! missing(ID) & year==1966 
+misstable sum age_at_death if ! missing(ID) & year==1971 
+misstable sum age_at_death if ! missing(ID) & year==1976 
+misstable sum age_at_death if ! missing(ID) & year==1981 
+
+**proportion of females with obituaries
+misstable sum age_at_death if ! missing(ID) & year==1961 & female==1 
+misstable sum age_at_death if ! missing(ID) & year==1966 & female==1 
+misstable sum age_at_death if ! missing(ID) & year==1971 & female==1 
+misstable sum age_at_death if ! missing(ID) & year==1976 & female==1 
+misstable sum age_at_death if ! missing(ID) & year==1981 & female==1 
+
+**by sex
+sum age_at_death if ! missing(ID) & year==1961 & female==0 
+sum age_at_death if ! missing(ID) & year==1961 & female==1 
+sum age_at_death if ! missing(ID) & year==1966 & female==0 
+sum age_at_death if ! missing(ID) & year==1966 & female==1 
+sum age_at_death if ! missing(ID) & year==1971 & female==0 
+sum age_at_death if ! missing(ID) & year==1971 & female==1 
+sum age_at_death if ! missing(ID) & year==1976 & female==0 
+sum age_at_death if ! missing(ID) & year==1976 & female==1 
+sum age_at_death if ! missing(ID) & year==1981 & female==0 
+sum age_at_death if ! missing(ID) & year==1981 & female==1 
+
+*both sexes
+sum age_at_death if ! missing(ID) & year==1946 
+sum age_at_death if ! missing(ID) & year==1951 
+sum age_at_death if ! missing(ID) & year==1956 
+sum age_at_death if ! missing(ID) & year==1961 
+sum age_at_death if ! missing(ID) & year==1966 
+sum age_at_death if ! missing(ID) & year==1971 
+sum age_at_death if ! missing(ID) & year==1976 
+sum age_at_death if ! missing(ID) & year==1981 
+
+**# Bookmark #2
+
+*--------------------------------------------------------------------
+*--------------------------------------------------------------------
+
+/*
+Analysis and figures for main text and appendix
+(code written by MO)
+
+required packages
+ssc install labmask
+ssc install coefplot
+
+*/
+*--------------------------------------------------------------------
+*--------------------------------------------------------------------
+*--------------------------------------------------------------------
+
+/*
+Figure 1 
+Comparing mean and median age-at-death from obituary data with available aggregated register-based data.
+
+*/
+clear all
+import excel "$dta/vorarlberg_deaths_1956_2021_1946.xlsx", sheet("data") firstrow clear 
+*allstring(%9.0g)
+
+destring _all, replace
+
+reshape long y_, i(age) j(year)
+
+sort year age
+rename y_ death_count
+
+*until 1969, age 95 means 95 or older. then it is 95.
+*until 2016 age 99 means 99 or older. Then it is 99 and 100 is 100 or older
+
+
+forval i=1961/2021 {
+	
+forval j=0/95{
+	
+quietly: sum death_count if age==`j' & year==`i'
+global count= `r(mean)'
+di $count
+expand $count if age==`j' & year==`i'
+
+}
+	
+}
+
+sort year age
+drop if death_count==0 // no deaths in that age, no obs!
+count if year >1960 // 152 194 ... true? YES
+tab year
+*no we can easily estimate stuff 
+
+*mean age at death
+
+forval i=1961/2021{
+	
+sum age if year ==`i'
+
+}
+
+*create mode age at death
+drop if death_count==.
+
+bysort year: egen max_death=max(death_count)
+gen a= age if death_count==max_death
+bysort year: egen mode_age=max(a)
+
+bysort year: sum mode_age
+
+*age at death distribution for each year
+
+*hist age if year==1961, width(1) freq
+drop a
+bysort year: egen a=mean(age) if age>0
+bysort year: egen mean_age_noinfants=mean(a) 
+drop a
+
+bysort year: egen a=median(age) if age>0
+bysort year: egen median_age_noinfants=mean(a) 
+drop a
+
+bysort year: egen a=mode(age) if age>0, maxmode
+bysort year: egen mode_age_noinfants=mean(a) 
+drop a
+
+bysort year: egen death_count_noinfants=count(age) if age>0
+
+*create time series data for graphs
+collapse (mean) mean_age=age mode_age mean_age_noinfants median_age_noinfants mode_age_noinfants death_count_noinfants (median) median_age=age (count) death_count=age, by(year)
+
+*add 1956 manually
+insobs 1
+replace year =1956 if year==.
+replace mean_age= 60.77 if year ==1956
+replace mean_age_noinfants= 64.47 if year ==1956
+replace death_count=2143 if year==1956
+replace death_count_noinfants=1959 if year==1956
+
+*add 1951 official count manually
+insobs 1
+replace year=1951 if year==.
+replace death_count=2039 if year==1951
+replace death_count_noinfants=1865 if year==1951
+*add 1946 manually
+insobs 1
+replace year=1946 if year==.
+replace mean_age= 53.50 if year==1946
+replace mean_age_noinfants= 59.71 if year ==1946
+replace death_count=1925 if year==1946
+replace death_count_noinfants=1725 if year==1946
+
+
+sort year
+
+
+save "$dta/ts_official_stats.dta", replace
+**# Bookmark #2
+
+/*
+No create the time series with the obit data
+*/
+
+use "$dta/VN_1946_1981_opendata.dta",clear
+graph set window fontface "Lucida Sans"
+
+
+**# Bookmark #1
+**DESCRIPTIVES
+tab year //by obituaries
+tab year if ID=="x" //by deceased with the data condensed in the main obituary (most commonly placed by the family)
+
+tab year obit_size if ID=="x", row
+tab year if age_at_death==0 // yep they are missing
+
+/*
+create mean, median, mode
+*/
+
+bysort year: egen mean_age_obit=mean(age_at_death)
+bysort year: egen median_age_obit=median(age_at_death)
+bysort year: egen mode_age_obit=mode(age_at_death), maxmode
+
+*hist age_at_death if year==1961, width(1) freq name(obit)
+*frame default: hist age if year==1961 & age>0, width(1) freq name(official)
+
+*CREATE time series now and then combine with official time series
+collapse (mean) mean_age_obit median_age_obit mode_age_obit (count) death_count_obit=age_at_death, by(year)
+save "$dta/ts_obit_stats.dta",replace
+
+
+use "$dta/ts_official_stats.dta", clear
+merge 1:1 year using "$dta/ts_obit_stats.dta"
+drop _merge
+
+gen coverage_all=death_count_obit/death_count
+gen coverage_noinfants=death_count_obit/death_count_noinfants
+
+*create FIGURE 1
+sort year
+tw ///
+(line mean_age year, lcolor(black)) ///
+(line mean_age_noinfants year, lcolor(black) lpattern(dash)) ///
+(connect mean_age_obit year, lcolor(black) mcolor(black) msize(small)) ///
+(line median_age year, lcolor(gs10)) ///
+(line median_age_noinfants year, lcolor(gs10) lpattern(dash)) ///
+(connect median_age_obit year, lcolor(gs10) mcolor(gs10) msize(small) msym(s)) , ///
+legend(order(1 "Mean - all" 2 "Mean - without infants"  3 "Mean - obituaries" 4 "Median - all" 5 "Median - without infants" 6 "Median - obituaries") pos(4) col(1) ring(0)) ///
+scheme(stcolor) ///
+xlab(1946(5)2021) ///
+xt("Year of Death") ///
+ylab(50(5)80) ///
+yt("Lifespan") ///
+title("Mean and median lifespan in Vorarlberg between 1946-2021" "Comparing official data and obituary data", size(medium))
+
+graph export "$graph/ts_lifespan_$S_DATE.pdf",replace
+graph export "$graph/ts_lifespan_$S_DATE.svg",replace
+
+*Figure 1 with coverage
+sort year
+graph set window fontface "Lucida Sans"
+
+foreach var in coverage_all coverage_noinfants {
+	replace `var'=`var'*100
+}
+
+tw ///
+(line mean_age year, yaxis(1) lcolor(black)) ///
+(line mean_age_noinfants year, lcolor(black) lpattern(dash)) ///
+(connect mean_age_obit year, lcolor(black) mcolor(black) msize(small)) ///
+(line median_age year, lcolor(gs10)) ///
+(line median_age_noinfants year, lcolor(gs10) lpattern(dash)) ///
+(connect median_age_obit year, lcolor(gs10) mcolor(gs10) msize(small) msym(s)) ///
+(connect coverage_all year, yaxis(2) lcolor(gs6) mcolor(gs6) msize(vsmall) msym(t) lwidth(thin)) ///
+(connect coverage_noinfants year, yaxis(2) lcolor(gs6) mcolor(gs6) msize(small) msym(x) lwidth(thin)) ///
+, ///
+legend(order(1 "Mean - all" 2 "Mean - without infants"  3 "Mean - obituaries" 4 "Median - all" 5 "Median - without infants" 6 "Median - obituaries" 7 "% Coverage - all" 8 "% Coverage - without infants") pos(4) col(2) colfirst ring(0) size(small)) ///
+scheme(stcolor) ///
+xlab(1946(5)2021, angle(45)) ///
+xt("Year of Death") ///
+ylab(50(5)80, axis(1)) ///
+ylab(0(20)100, axis(2)) ///
+yt("Lifespan", axis(1)) ///
+yt("% of Deaths Covered in Obituaries", axis(2)) ///
+title("Mean and median lifespan in Vorarlberg between 1946-2021" "Comparing official data and obituary data", size(medium))
+
+graph export "$graph/ts_lifespan_coverage_$S_DATE.pdf",replace
+graph export "$graph/ts_lifespan_coverage_$S_DATE.svg",replace
+
+
+
+**# Bookmark #2
+
+/*
+Histograms comparing distribution of age-at-death for
+1946 (need to bin ages)
+1956 (need to bin ages)
+1961, 1966, 1971, ..., 1981
+*/
+
+*create individual level data with official and obit data
+
+clear all
+
+import excel "$dta/vorarlberg_deaths_1956_2021_1946.xlsx", sheet("data") firstrow clear 
+*allstring(%9.0g)
+
+destring _all, replace
+
+reshape long y_, i(age) j(year)
+
+sort year age
+rename y_ death_count
+
+*until 1969, age 95 means 95 or older. then it is 95.
+*until 2016 age 99 means 99 or older. Then it is 99 and 100 is 100 or older
+
+forval i=1961/2021 {
+	
+forval j=0/95{
+	
+quietly: sum death_count if age==`j' & year==`i'
+global count= `r(mean)'
+di $count
+expand $count if age==`j' & year==`i'
+
+}
+	
+}
+
+sort year age
+drop if death_count==0 // no deaths in that age, no obs!
+count if year >1960 // 152 194 ... true? YES!
+tab year
+*now can easily estimate stuff 
+
+*mean age at death
+
+forval i=1961/2021{
+	
+sum age if year ==`i'
+
+}
+
+*create mode age at death
+drop if death_count==.
+
+bysort year: egen max_death=max(death_count)
+gen a= age if death_count==max_death
+bysort year: egen mode_age=max(a)
+
+bysort year: sum mode_age
+
+*age at death distribution for each year
+
+
+*create off_data indicator
+gen official_data=1
+
+**# Bookmark #4
+*create equivalent data for obituaries and append
+frame create obit_data
+frame change obit_data
+use "$dta/VN_1946_1981_opendata.dta",clear
+
+*label variables
+graph set window fontface "Lucida Sans"
+set scheme stcolor
+
+**# Bookmark #1
+**DESCRIPTIVES
+tab year //by obituaries
+tab year if ID=="x" //by deceased with the data condensed in the main obituary (most commonly placed by the family)
+
+tab year obit_size if ID=="x", row
+
+tab year if age_at_death==0 // yep they are missing
+drop if ID!="x"
+keep year age_at_death obit_size
+rename age_at_death age
+gen official_data=0
+
+save "$dta/obit_hist_data.dta",replace
+
+frame change default
+
+append using "$dta/obit_hist_data.dta"
+sort year
+
+**# Bookmark #5
+
+/*
+Looks good, still need to do 1956
+*/
+frame create data_1956
+frame change data_1956
+
+import excel "$dta/vorarlberg_deaths_1956_2021_1946.xlsx", sheet("data_1956") firstrow clear 
+
+keep age count_all
+gen age3=_n
+labmask age3, values(age)
+rename age age_str
+rename age3 age
+rename count_all death_count
+
+egen total_deaths=sum(death_count)
+gen death_prop=death_count/total_deaths
+gen official_data=1
+
+*looks good, now get the obit data in same format
+frame copy obit_data obit_1956
+frame change obit_1956
+drop if year!=1956
+keep if official_data==0
+drop if age==.
+// drop death_count
+sort year age
+egen age_cat=cut(age), at(0,1,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,105 ) icodes
+replace age_cat =age_cat+1
+collapse (count) age, by(age_cat)
+rename age death_count
+egen total_deaths=sum(death_count)
+gen death_prop=death_count/total_deaths
+
+gen official_data=0
+
+save "$dta/obit_1956_summary.dta",replace
+
+frame change data_1956
+append using "$dta/obit_1956_summary.dta"
+replace age = age_cat if age==.
+graph set window fontface "Lucida Sans"
+
+tw ///
+(bar death_prop age if official_data==1, fcolor(gs10) lcolor(none)) ///
+(bar death_prop age if official_data==0, fcolor(none) lcolor(black) ) ///
+, ///
+ylab(, labsize(vsmall)) ///
+xlab(1(1)18, angle(45) valuelabel labsize(vsmall)) ///
+xt("Age-at-death") ///
+yt("Fraction") ///
+title("{bf:1956}", size(medium)) ///
+legend(order(1 "Official data" 2 "Obituary data") col(2) pos(12) ring(0)) ///
+name(H1956, replace)
+
+**# Bookmark #3
+*no need to do 1946
+
+frame create data_1946
+frame change data_1946
+
+import excel "$dta/vorarlberg_deaths_1956_2021_1946.xlsx", sheet("data_1946") firstrow clear 
+
+keep age count_all
+gen age3=_n
+labmask age3, values(age)
+rename age age_str
+rename age3 age
+rename count_all death_count
+
+egen total_deaths=sum(death_count)
+gen death_prop=death_count/total_deaths
+gen official_data=1
+
+*looks good, now get the obit data in same format
+frame copy obit_data obit_1946
+frame change obit_1946
+drop if year!=1946
+keep if official_data==0
+drop if age==.
+// drop death_count
+sort year age
+egen age_cat=cut(age), at(0,1,6,12,18,30,40,50,60,70,105 ) icodes // cut offs 1-5, 6-11,.. was wrong in data
+replace age_cat =age_cat+1
+collapse (count) age, by(age_cat)
+rename age death_count
+egen total_deaths=sum(death_count)
+gen death_prop=death_count/total_deaths
+
+gen official_data=0
+
+save "$dta/obit_1946_summary.dta",replace
+
+frame change data_1946
+append using "$dta/obit_1946_summary.dta"
+replace age = age_cat if age==.
+
+graph set window fontface "Lucida Sans"
+
+tw ///
+(bar death_prop age if official_data==1, fcolor(gs10) lcolor(none)) ///
+(bar death_prop age if official_data==0, fcolor(none) lcolor(black) ) ///
+, ///
+ylab(, labsize(vsmall)) ///
+xlab(1(1)10, angle(45) valuelabel labsize(vsmall)) ///
+xt("Age at Death") ///
+yt("Fraction") ///
+title("{bf:1946}", size(medium)) ///
+legend(order(1 "Official data" 2 "Obituary data") col(1) pos(12) ring(0)) ///
+name(H1946, replace)
+
+
+frame change default
+
+graph set window fontface "Lucida Sans"
+
+forval i=1961(5)1981 {
+	
+tw ///
+(hist age if year==`i' & official_data==1, width(1) frac fcolor(gs10) lcolor(none)) ///
+(hist age if year==`i' & official_data==0, width(1) frac fcolor(none) lcolor(black) lwidth(vthin)) ///
+, ///
+xt("Age-at-death") ///
+xlab(, labsize(small)) ///
+ylab(0(0.02)0.08, labsize(vsmall)) ///
+legend(order(1 "Official data" 2 "Obituary data") col(1) pos(4) ) ///
+title("{bf:`i'}", size(medium))  name(H`i',replace)
+
+}
+
+*COMBINE ALL FOR FIGURE 2
+
+grc1leg2 H1946 H1956 H1961 H1966 H1971 H1976 H1981, ///
+imargins(zero) col(2) xtob1title ytol1title ///
+ring(0) pos(4) lsize(large) lyoffset(5) lxoffset(-10)
+
+gr export "$graph/histos_data_$S_DATE.pdf",replace
+gr export "$graph/histos_data_$S_DATE.svg",replace height(700) width(600)
+gr export "$graph/histos2_data_$S_DATE.svg",replace 
+
+
+**# Bookmark #4
+
+/*
+FIGURE 3
+
+*/
+clear all
+
+use "$dta/VN_1946_1981_opendata.dta",clear
+
+graph set window fontface "Lucida Sans"
+set scheme stcolor
+
+**# Bookmark #1
+tab year //by obituaries
+tab year if ID=="x" //by deceased with the data condensed in the main obituary (most commonly placed by the family)
+
+tab year obit_size if ID=="x", row
+
+/**** estimate unadjusted mean life span for each year by obituary size **
+
+Make a scatter plot with estimates for each year
+
+*****/
+
+*append 2022 data: year, age_at_death, obit_size, female, multiple_obituaries
+
+frame create data_2022
+frame change data_2022
+
+import excel "$dta\VN_Q3_Q4_2022_Zenodo.xlsx", sheet("Data") firstrow clear
+
+keep Age_at_death Multiple_obituaries Female Obituary_size
+gen year=2022
+rename Age_at_death age_at_death
+rename Multiple_obituaries multiple_obituaries
+rename Female female
+rename Obituary_size obit_size
+gen ID="x"
+save "$dta/data_2022.dta",replace
+
+frame change default
+
+append using "$dta/data_2022.dta"
+sort year age_at_death
+keep year age_at_death obit_size multiple_obituaries female ID
+
+replace year=1986 if year==2022 // to make like easier when coding and change 1986 to 2022 in the end
+**# Bookmark #1
+
+*ESTIMATION
+
+forval i= 1946(5)1986 {
+reg age_at_death i.obit_size if year==`i' & ID=="x" // estimate unadjusted means for each group
+margins i.obit_size, /// predict means
+saving("$dta/unadj_mean_`i'.dta",replace) // save predictions as data file
+preserve
+use "$dta/unadj_mean_`i'.dta", clear
+gen year=`i'
+keep year _margin _se_margin _ci_lb _ci_ub _m1
+save "$dta/unadj_mean_`i'.dta", replace
+restore
+}
+
+forval i=1946(5)1986 {
+reg age_at_death i.obit_size i.female i.multiple_obituaries if year==`i' & ID=="x" // estimate unadjusted means for each group
+margins i.obit_size, /// predict means
+saving("$dta/adj_mean_`i'.dta",replace) // save predictions as data file
+preserve
+use "$dta/adj_mean_`i'.dta", clear
+gen year=`i'
+keep year _margin _se_margin _ci_lb _ci_ub _m1
+save "$dta/adj_mean_`i'.dta", replace
+restore
+}
+
+*FIGURE 3
+/*
+Have undajusted and adjusted estimates in one graph next to each other
+
+*/
+preserve
+use "$dta/unadj_mean_1946.dta", clear // create data with all estimates
+
+forval i=1951(5)1986 {
+append using "$dta/unadj_mean_`i'.dta"
+}
+
+gen adjusted=0
+
+forval i=1946(5)1986 {
+append using "$dta/adj_mean_`i'.dta" // append adjusted estimates
+}
+replace adjusted=1 if adjusted==.
+
+replace year=year-1.2 if _m1==1 & adjusted==0 // produce offset for small size so estimates don't overlap
+replace year=year-0.8 if _m1==1 & adjusted==1 // produce offset for small size so estimates don't overlap
+replace year=year+0.2 if _m1==2 & adjusted==1 // as above
+replace year=year-0.2 if _m1==2 & adjusted==0 // as above
+replace year=year+1.2 if _m1==3 & adjusted==1 // as above
+replace year=year+0.7 if _m1==3 & adjusted==0 // as above
+graph set window fontface "Lucida Sans"
+
+*FIGURE 3
+tw ///
+(scatter _margin year if _m1==1 & adjusted==0, msym(sh) mcolor(gs1) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==1 & adjusted==0, lcolor(gs1)) ///
+(scatter _margin year if _m1==1 & adjusted==1, msym(s) mcolor(gs1) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==1 & adjusted==1, lcolor(gs1)) ///
+(scatter _margin year if _m1==2 & adjusted==0, msym(oh)  mcolor(gs5) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==2 & adjusted==0, lcolor(gs5)) ///
+(scatter _margin year if _m1==2 & adjusted==1, msym(o)  mcolor(gs5) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==2 & adjusted==1, lcolor(gs5)) ///
+(scatter _margin year if _m1==3 & adjusted==0, msym(dh) mcolor(gs9) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==3 & adjusted==0, lcolor(gs9)) ///
+(scatter _margin year if _m1==3 & adjusted==1, msym(d) mcolor(gs9) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==3 & adjusted==1, lcolor(gs9)) ///
+, ///
+ylab(45(5)90, grid gmin) ///
+yt("Estimated Mean Lifespan") ///
+xlab(1946(5)1981 1986 "{it:2022}", nogrid noticks) ///
+xt("Year") ///
+xline( 1948.5 1953.5 1958.5 1963.5 1968.5 1973.5 1978.5 ) ///
+xline( 1983.5, lpattern(solid) lwidth(thick) lcolor(red)) ///
+legend( order( 1 "Small - unadjusted" 3 "Small - adjusted" 5 "Medium - unadjusted" 7 "Medium - adjusted" 9 "Large - unadjusted" 11 "Large - adjusted") pos(6) row(2) colfirst) ///
+title("{bf: Unadjusted and Adjusted Mean Lifespan by Obituary Size}") ///
+note("Means separately estimated for each year by linear regression; adjusted for gender and multiple obituaries" "Data for 2022 (Q3 & Q4) comes from Mayer, Berger, Oberndorfer 2023")
+
+graph export "$graph/unadj_adj_mean_$S_DATE.pdf",replace
+graph export "$graph/unadj_adj_mean_$S_DATE.svg",replace // to insert in word, pdf
+
+restore
+
+**# Bookmark #1
+* FIGURE 4
+*Absolute difference between small and large
+
+*Estimation
+forval i=1946(5)1986 {
+reg age_at_death i.obit_size i.female i.multiple_obituaries if year==`i' & ID=="x" // estimate adjusted means for each group
+margins r.obit_size, contrast /// predict means
+saving("$dta/contrast_`i'.dta",replace) // save predictions as data file
+preserve
+use "$dta/contrast_`i'.dta", clear
+gen year=`i'
+keep year _margin _se_margin _ci_lb _ci_ub _m1
+save "$dta/contrast_`i'.dta", replace
+restore
+}
+
+preserve // so we get the old data back after creating the figure
+use "$dta/contrast_1946.dta", clear // create data with all estimates
+
+forval i=1951(5)1986 {
+append using "$dta/contrast_`i'.dta"
+}
+
+replace year=year+0.5 if _m1==3 // as above
+
+
+tw ///
+(scatter _margin year if _m1==2, msym(s) mcolor(gs1) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==2, lcolor(gs1)) ///
+(scatter _margin year if _m1==3, msym(o)  mcolor(gs5) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==3, lcolor(gs5)) ///
+, ///
+ylab(-15(5)30, grid) ///
+yt("Adjusted Mean Differences in Lifespan") ///
+xlab(1946(5)1981 1986 "{it:2022}", nogrid noticks) ///
+xt("Year") ///
+yline(0, lcolor(red) lpattern(solid)) ///
+xline( 1983.5, lpattern(solid) lwidth(thick) lcolor(red)) ///
+legend( order( 1 "Difference between Medium and Small" 3 "Difference between Large and Small") pos(6) row(1)) ///
+title("Adjusted Mean Differences Lifespan by Obituary Size") ///
+note("Mean differences separately estimated for each year by linear regression and adjusted for gender and multiple obituaries"  "Data for 2022 (Q3 & Q4) comes from Mayer, Berger, Oberndorfer 2023", size(vsmall))
+
+graph export "$graph/adj_contrast_$S_DATE.pdf",replace
+graph export "$graph/adj_contrast_$S_DATE.svg",replace // to insert to word
+
+restore // back to data set
+
+**# Bookmark #5
+
+/*
+FIGURE 5
+FIGURE 5
+
+*/
+
+use "$dta/VN_1946_1981_opendata.dta",clear
+
+
+
+**# Bookmark #1
+**DESCRIPTIVES
+tab year //by obituaries
+tab year if ID=="x" //by deceased with the data condensed in the main obituary (most commonly placed by the family)
+
+tab year obit_size if ID=="x", row
+
+graph set window fontface "Lucida Sans"
+set scheme stcolor
+
+forval i=1946(5)1981{
+	tab bluewhitecollar female if year==`i',m col
+
+}
+tab bluewhitecollar female,m
+
+forval i=1946(5)1981 {
+reg age_at_death i.obit_size i.female i.multiple_obituaries if year==`i' & ID=="x", 
+estimates store o_size_`i'
+reg age_at_death i.ISCED678 i.female i.multiple_obituaries if year==`i' & ID=="x", 
+estimates store edu_`i'
+reg age_at_death i.bluewhitecollar i.female i.multiple_obituaries if year==`i' & ID=="x", 
+estimates store collar_`i'
+reg age_at_death i.any_honorary_service i.female i.multiple_obituaries if year==`i' & ID=="x", 
+estimates store voluntary_`i'
+
+*FIGURE 5
+coefplot ///
+(edu_`i', label(Tertiary education) mcolor("black") msymbol(X) ciopts(lcolor("black"))) ///
+(collar_`i', label(Collar of profession) mcolor("black") msymbol(Sh) ciopts(lcolor("black"))) ///
+(voluntary_`i', label(Honorary service)  mcolor("black") msymbol(Dh) ciopts(lcolor("black"))) ///
+,keep(*.obit_size *.ISCED678 *.bluewhitecollar *.any_honorary_service) ///
+baselevels ///
+xlabel(-15(5)30, angle(horizontal) labsize(small) noticks) ///
+xtitle("{it:Lower lifespan                                      Higher lifespan}", size(medsmall)) ///
+xline(0, lcolor(red) lwidth(thin) lpattern(solid)) ///
+yline(2.5, lcolor(gs10) lwidth(thin) lpattern(dash)) ///
+yline(5.5, lcolor(gs10) lwidth(thin) lpattern(dash)) ///
+ylabel( ,nogrid labsize(small)) ///
+graphregion(color(white)) grid(none) ///
+title("{bf:Mean differences in lifespan, `i'}", size(medsmall) color(black)) ///
+legend(pos(6) row(1)) ///
+name(coef_all_`i',replace)
+
+}
+
+grc1leg2 coef_all_1946 coef_all_1951 coef_all_1956 coef_all_1961 coef_all_1966 coef_all_1971 coef_all_1976 coef_all_1981 , ///
+col(2) imargins(zero) legscale(medsmall) lxoffset(5) lyoffset(2.25)
+
+
+*graph export "$graph/forest_$S_DATE.pdf" ,replace width(500) height(600)
+graph export "$graph/forest_without_obit_$S_DATE.svg" ,replace width(450) height(470)
+
+
+
+/*
+SENSITIVITY ANALYSIS
+SENSITIVITY ANALYSIS
+SENSITIVITY ANALYSIS
+SENSITIVITY ANALYSIS
+
+*/
+**# Bookmark #6
+
+
+append using "$dta/data_2022.dta"
+sort year age_at_death
+keep year age_at_death obit_size multiple_obituaries female ID
+
+replace year=1986 if year==2022 // to make like easier when coding and change 1986 to 2022 in the end
+
+
+*Estimating means over medians
+/* test run
+help qreg
+qreg  age_at_death i.obit_size i.female i.multiple_obituaries if year==1966 & ID=="x", quantile(0.5) // estimate adjusted medians for each group
+
+margins i.obit_size, // predict medians*/
+
+
+forval i= 1946(5)1986 {
+qreg age_at_death i.obit_size if year==`i' & ID=="x", quantile(0.5) // estimate unadjusted means for each group
+margins i.obit_size, /// predict means
+saving("$dta/unadj_median_`i'.dta",replace) // save predictions as data file
+preserve
+use "$dta/unadj_median_`i'.dta", clear
+gen year=`i'
+keep year _margin _se_margin _ci_lb _ci_ub _m1
+save "$dta/unadj_median_`i'.dta", replace
+restore
+}
+
+preserve // so we get the old data back after creating the figure
+use "$dta/unadj_median_1946.dta", clear // create data with all estimates
+
+forval i=1951(5)1986 {
+append using "$dta/unadj_median_`i'.dta"
+}
+
+replace year=year-0.5 if _m1==1 // produce offset for small size so estimates don't overlap
+replace year=year+0.5 if _m1==3 // as above
+
+set scheme stcolor
+
+tw ///
+(scatter _margin year if _m1==1, msym(s) mcolor(gs1) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==1, lcolor(gs1)) ///
+(scatter _margin year if _m1==2, msym(o)  mcolor(gs5) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==2, lcolor(gs5)) ///
+(scatter _margin year if _m1==3, msym(d) mcolor(gs9) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==3, lcolor(gs9)) ///
+, ///
+ylab(45(5)80, grid) ///
+yt("Unadjusted Median Lifespan") ///
+xlab(1946(5)1981 1986 "2022", grid) ///
+xt("Year") ///
+legend( order( 1 "Small" 3 "Medium" 5 "Large") pos(6) row(1)) ///
+title("Unadjusted Mean Lifespan by Obituary Size") ///
+note("Means separately estimated for each year by linear regression")
+
+graph export "$graph/unadj_median_$S_DATE.pdf",replace
+restore // back to data set
+
+
+forval i=1946(5)1986 {
+qreg age_at_death i.obit_size i.female i.multiple_obituaries if year==`i' & ID=="x", quantile(0.5) // estimate unadjusted means for each group
+margins i.obit_size, /// predict means
+saving("$dta/adj_median_`i'.dta",replace) // save predictions as data file
+preserve
+use "$dta/adj_median_`i'.dta", clear
+gen year=`i'
+keep year _margin _se_margin _ci_lb _ci_ub _m1
+save "$dta/adj_median_`i'.dta", replace
+restore
+}
+
+preserve // so we get the old data back after creating the figure
+use "$dta/adj_median_1946.dta", clear // create data with all estimates
+
+forval i=1951(5)1986 {
+append using "$dta/adj_median_`i'.dta"
+}
+
+replace year=year-0.5 if _m1==1 // produce offset for small size so estimates don't overlap
+replace year=year+0.5 if _m1==3 // as above
+
+set scheme stcolor
+
+tw ///
+(scatter _margin year if _m1==1, msym(s) mcolor(gs1) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==1, lcolor(gs1)) ///
+(scatter _margin year if _m1==2, msym(o)  mcolor(gs5) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==2, lcolor(gs5)) ///
+(scatter _margin year if _m1==3, msym(d) mcolor(gs9) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==3, lcolor(gs9)) ///
+, ///
+ylab(45(5)80, grid) ///
+yt("Estimated Median Lifespan") ///
+xlab(1946(5)1981 1986 "2022", grid) ///
+xt("Year") ///
+legend( order( 1 "Small" 3 "Medium" 5 "Large") pos(6) row(1)) ///
+title("Adjusted Mean Lifespan by Obituary Size") ///
+note("Means separately estimated for each year by linear regression adjusted for gender and multiple_obituaries")
+
+graph export "$graph/adj_median_$S_DATE.pdf",replace
+restore // back to data set
+
+
+*FIGURE 1
+/*
+Have undajusted and adjusted estimates in one graph next to each other
+
+*/
+preserve
+use "$dta/unadj_median_1946.dta", clear // create data with all estimates
+
+forval i=1951(5)1986 {
+append using "$dta/unadj_median_`i'.dta"
+}
+
+gen adjusted=0
+
+forval i=1946(5)1986 {
+append using "$dta/adj_median_`i'.dta" // append adjusted estimates
+}
+replace adjusted=1 if adjusted==.
+
+replace year=year-1.2 if _m1==1 & adjusted==0 // produce offset for small size so estimates don't overlap
+replace year=year-0.8 if _m1==1 & adjusted==1 // produce offset for small size so estimates don't overlap
+replace year=year+0.2 if _m1==2 & adjusted==1 // as above
+replace year=year-0.2 if _m1==2 & adjusted==0 // as above
+replace year=year+1.2 if _m1==3 & adjusted==1 // as above
+replace year=year+0.7 if _m1==3 & adjusted==0 // as above
+
+tw ///
+(scatter _margin year if _m1==1 & adjusted==0, msym(sh) mcolor(gs1) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==1 & adjusted==0, lcolor(gs1)) ///
+(scatter _margin year if _m1==1 & adjusted==1, msym(s) mcolor(gs1) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==1 & adjusted==1, lcolor(gs1)) ///
+(scatter _margin year if _m1==2 & adjusted==0, msym(oh)  mcolor(gs5) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==2 & adjusted==0, lcolor(gs5)) ///
+(scatter _margin year if _m1==2 & adjusted==1, msym(o)  mcolor(gs5) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==2 & adjusted==1, lcolor(gs5)) ///
+(scatter _margin year if _m1==3 & adjusted==0, msym(dh) mcolor(gs9) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==3 & adjusted==0, lcolor(gs9)) ///
+(scatter _margin year if _m1==3 & adjusted==1, msym(d) mcolor(gs9) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==3 & adjusted==1, lcolor(gs9)) ///
+, ///
+ylab(45(5)95, grid gmin) ///
+yt("Estimated Median Lifespan") ///
+xlab(1946(5)1981 1986 "{it:2022}", nogrid noticks) ///
+xt("Year") ///
+xline( 1948.5 1953.5 1958.5 1963.5 1968.5 1973.5 1978.5 ) ///
+xline( 1983.5, lpattern(solid) lwidth(thick) lcolor(red)) ///
+legend( order( 1 "Small - unadjusted" 3 "Small - adjusted" 5 "Medium - unadjusted" 7 "Medium - adjusted" 9 "Large - unadjusted" 11 "Large - adjusted") pos(6) row(2) colfirst) ///
+title("{bf: Unadjusted and Adjusted Median Lifespan by Obituary Size}") ///
+note("Medians separately estimated for each year by quantile regression; adjusted for gender and multiple obituaries" "Data for 2022 (Q3 & Q4) comes from Mayer, Berger, Oberndorfer 2023")
+
+graph export "$graph/unadj_adj_median_$S_DATE.pdf",replace
+graph export "$graph/unadj_adj_median_$S_DATE.svg",replace // to insert in word, pdf
+
+restore
+
+
+**# Bookmark #8
+*Figure 2 with median
+forval i=1946(5)1986 {
+qreg age_at_death i.obit_size i.female i.multiple_obituaries if year==`i' & ID=="x", quantile(0.5) // estimate adjusted means for each group
+margins r.obit_size, contrast /// predict means
+saving("$dta/contrast_`i'.dta",replace) // save predictions as data file
+preserve
+use "$dta/contrast_`i'.dta", clear
+gen year=`i'
+keep year _margin _se_margin _ci_lb _ci_ub _m1
+save "$dta/contrast_`i'.dta", replace
+restore
+}
+
+preserve // so we get the old data back after creating the figure
+use "$dta/contrast_1946.dta", clear // create data with all estimates
+
+forval i=1951(5)1986 {
+append using "$dta/contrast_`i'.dta"
+}
+
+replace year=year+0.5 if _m1==3 // as above
+
+
+**# Bookmark #2
+* FIGURE 2
+*Absolute difference between small and large
+tw ///
+(scatter _margin year if _m1==2, msym(s) mcolor(gs1) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==2, lcolor(gs1)) ///
+(scatter _margin year if _m1==3, msym(o)  mcolor(gs5) msize(medium)) ///
+(rcap _ci_lb _ci_ub year if _m1==3, lcolor(gs5)) ///
+, ///
+ylab(-15(5)35, grid) ///
+yt("Adjusted Median Differences in Lifespan") ///
+xlab(1946(5)1981 1986 "{it:2022}", nogrid noticks) ///
+xt("Year") ///
+yline(0, lcolor(red) lpattern(solid)) ///
+xline( 1983.5, lpattern(solid) lwidth(thick) lcolor(red)) ///
+legend( order( 1 "Difference between Medium and Small" 3 "Difference between Large and Small") pos(6) row(1)) ///
+title("Adjusted Median Differences Lifespan by Obituary Size") ///
+note("Median differences separately estimated for each year by quantile regression and adjusted for gender and multiple obituaries"  "Data for 2022 (Q3 & Q4) comes from Mayer, Berger, Oberndorfer 2023", size(vsmall))
+
+graph export "$graph/adj_contrast_median_$S_DATE.pdf",replace
+graph export "$graph/adj_contrast_median_$S_DATE.svg",replace // to insert to word
+
+restore // back to data set
+
+**# Bookmark #9
+
+*Figure with coefplot and medians
+use "$dta/VN_1946_1981_opendata.dta",clear
+
+graph set window fontface "Lucida Sans"
+set scheme stcolor
+
+
+forval i=1946(5)1981{
+	tab bluewhitecollar female if year==`i',m col
+
+}
+tab bluewhitecollar female,m
+
+forval i=1946(5)1981 {
+qreg age_at_death i.obit_size i.female i.multiple_obituaries if year==`i' & ID=="x", 
+estimates store o_size_`i'
+qreg age_at_death i.ISCED678 i.female i.multiple_obituaries if year==`i' & ID=="x", 
+estimates store edu_`i'
+qreg age_at_death i.bluewhitecollar i.female i.multiple_obituaries if year==`i' & ID=="x", 
+estimates store collar_`i'
+qreg age_at_death i.any_honorary_service i.female i.multiple_obituaries if year==`i' & ID=="x", 
+estimates store voluntary_`i'
+
+
+coefplot ///
+(edu_`i', label(Tertiary education) mcolor("black") msymbol(X) ciopts(lcolor("black"))) ///
+(collar_`i', label(Collar of profession) mcolor("black") msymbol(Sh) ciopts(lcolor("black"))) ///
+(voluntary_`i', label(Honorary service)  mcolor("black") msymbol(Dh) ciopts(lcolor("black"))) ///
+,keep(*.obit_size *.ISCED678 *.bluewhitecollar *.any_honorary_service) ///
+baselevels ///
+xlabel(-15(5)30, angle(horizontal) labsize(small) noticks) ///
+xtitle("{it:Lower lifespan                                      Higher lifespan}", size(medsmall)) ///
+xline(0, lcolor(red) lwidth(thin) lpattern(solid)) ///
+yline(2.5, lcolor(gs10) lwidth(thin) lpattern(dash)) ///
+yline(5.5, lcolor(gs10) lwidth(thin) lpattern(dash)) ///
+ylabel( ,nogrid labsize(small)) ///
+graphregion(color(white)) grid(none) ///
+title("{bf: Differences in median lifespan, `i'}", size(medsmall) color(black)) ///
+legend(pos(6) row(1)) ///
+name(coef_all_`i',replace)
+
+}
+
+grc1leg2 coef_all_1946 coef_all_1951 coef_all_1956 coef_all_1961 coef_all_1966 coef_all_1971 coef_all_1976 coef_all_1981 , ///
+col(2) imargins(zero) legscale(medsmall) lxoffset(5) lyoffset(2.25)
+
+
+*graph export "$graph/forest_$S_DATE.pdf" ,replace width(500) height(600)
+graph export "$graph/forest_median_without_obit_$S_DATE.svg" ,replace width(450) height(470)
+
+
+/*
+
+That's all, folks. last line
+*/ 
+
+
+
+
+
+
+
+
+
+
